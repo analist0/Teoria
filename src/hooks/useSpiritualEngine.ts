@@ -69,6 +69,28 @@ export function useSpiritualEngine() {
     [addAttractor]
   )
 
+  // Deactivate a word effect
+  const deactivateWord = useCallback(
+    (wordId: string) => {
+      const attractorId = `attractor_${wordId}`
+
+      deactivateAttractor(attractorId)
+
+      // Clear timeout
+      const timeout = activeTimeouts.current.get(wordId)
+      if (timeout) {
+        clearTimeout(timeout)
+        activeTimeouts.current.delete(wordId)
+      }
+
+      // Remove attractor after fade animation
+      setTimeout(() => {
+        removeAttractor(attractorId)
+      }, 800)
+    },
+    [deactivateAttractor, removeAttractor]
+  )
+
   // Activate a word effect
   const activateWord = useCallback(
     (word: SpiritualWord, element: HTMLElement) => {
@@ -100,38 +122,24 @@ export function useSpiritualEngine() {
 
       activeTimeouts.current.set(word.id, timeout)
     },
-    [activeAttractors, createWordAttractor, setCurrentSefirah, activateAttractor]
-  )
-
-  // Deactivate a word effect
-  const deactivateWord = useCallback(
-    (wordId: string) => {
-      const attractorId = `attractor_${wordId}`
-
-      deactivateAttractor(attractorId)
-
-      // Clear timeout
-      const timeout = activeTimeouts.current.get(wordId)
-      if (timeout) {
-        clearTimeout(timeout)
-        activeTimeouts.current.delete(wordId)
-      }
-
-      // Remove attractor after fade animation
-      setTimeout(() => {
-        removeAttractor(attractorId)
-      }, 800)
-    },
-    [deactivateAttractor, removeAttractor]
+    [
+      activeAttractors,
+      createWordAttractor,
+      setCurrentSefirah,
+      activateAttractor,
+      deactivateWord
+    ]
   )
 
   // Cleanup on unmount
   useEffect(() => {
+    const timeouts = activeTimeouts.current
+
     return () => {
-      for (const timeout of activeTimeouts.current.values()) {
+      for (const timeout of timeouts.values()) {
         clearTimeout(timeout)
       }
-      activeTimeouts.current.clear()
+      timeouts.clear()
     }
   }, [])
 

@@ -173,6 +173,18 @@ const fragmentShader = /* glsl */ `
 `
 
 // ═══════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════
+
+const FLOW_DIRECTION_MAP: Record<string, number> = {
+  down: 0,
+  up: 1,
+  converge: 2,
+  diverge: 3,
+  spiral: 4
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // COMPONENT PROPS
 // ═══════════════════════════════════════════════════════════════════
 
@@ -200,14 +212,7 @@ export function ParticleAttractor({
 
   const visuals = SEFIROT_VISUALS[sefirah]
 
-  // Flow direction mapping
-  const flowDirectionMap: Record<string, number> = {
-    down: 0,
-    up: 1,
-    converge: 2,
-    diverge: 3,
-    spiral: 4
-  }
+  // Flow direction mapping (see FLOW_DIRECTION_MAP)
 
   // Create particle attributes
   const { positions, sizes, seeds, lifes } = useMemo(() => {
@@ -245,7 +250,8 @@ export function ParticleAttractor({
         u_attractorPosition: { value: attractorPosition.clone() },
         u_attractorStrength: { value: visuals.emissiveIntensity },
         u_attractorActive: { value: attractorActive },
-        u_flowDirection: { value: flowDirectionMap[visuals.flowDirection] },
+        u_flowDirection: { value: FLOW_DIRECTION_MAP[visuals.flowDirection] },
+
         u_turbulence: { value: 0.3 },
         u_particleSpeed: { value: visuals.particleSpeed },
         u_color: { value: new THREE.Color(visuals.primaryColor) },
@@ -256,7 +262,7 @@ export function ParticleAttractor({
       blending: THREE.AdditiveBlending,
       depthWrite: false
     })
-  }, [sefirah, attractorPosition, attractorActive, visuals])
+  }, [attractorPosition, attractorActive, visuals])
 
   // Dispose material on unmount to prevent GPU memory leak
   useEffect(() => {
@@ -281,7 +287,7 @@ export function ParticleAttractor({
       material.uniforms.u_color.value.set(visuals.primaryColor)
       material.uniforms.u_secondaryColor.value.set(visuals.secondaryColor)
       material.uniforms.u_attractorStrength.value = visuals.emissiveIntensity
-      material.uniforms.u_flowDirection.value = flowDirectionMap[visuals.flowDirection]
+      material.uniforms.u_flowDirection.value = FLOW_DIRECTION_MAP[visuals.flowDirection]
       material.uniforms.u_particleSpeed.value = visuals.particleSpeed
       material.uniforms.u_pulseFrequency.value = visuals.pulseFrequency
     }
