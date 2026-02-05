@@ -19,7 +19,9 @@
   text-align: center;
   margin-bottom: 3rem;
   color: #ffffff;
-  text-shadow: 0 0 30px rgba(100, 150, 255, 0.5);
+  text-shadow:
+    0 0 30px rgba(100, 150, 255, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.8);
   font-family: 'Frank Ruhl Libre', serif;
 }
 
@@ -27,16 +29,23 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  background: rgba(5, 5, 15, 0.85);
+  padding: 2rem;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(100, 150, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .verse {
   font-size: 1.8rem;
   line-height: 2.4;
   text-align: center;
-  color: #e0e0e0;
+  color: #e8e8f0;
   margin: 0;
   padding: 0.5rem 0;
   font-family: 'Frank Ruhl Libre', 'David Libre', serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .word {
@@ -49,8 +58,9 @@
 
 /* Divine Name styling */
 .divineName {
-  color: #88ccff;
+  color: #7cb8ff;
   font-weight: 600;
+  text-shadow: 0 0 8px rgba(100, 150, 255, 0.4);
 }
 
 .divineName.active {
@@ -60,8 +70,9 @@
 
 /* Kavvanah word styling */
 .kavvanah {
-  color: #ffcc88;
+  color: #ffd699;
   font-weight: 500;
+  text-shadow: 0 0 8px rgba(255, 200, 100, 0.3);
 }
 
 .kavvanah.active {
@@ -84,15 +95,15 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 0.5rem 1rem;
-  background: rgba(20, 20, 40, 0.95);
+  background: rgba(10, 10, 25, 0.98);
   border: 1px solid rgba(100, 150, 255, 0.3);
   border-radius: 8px;
   font-size: 0.85rem;
-  color: #aabbdd;
+  color: #c0d0ee;
   white-space: nowrap;
   pointer-events: none;
   backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
   z-index: 100;
 }
 
@@ -138,6 +149,10 @@
     font-size: 1.4rem;
     line-height: 2.2;
   }
+
+  .textContent {
+    padding: 1.5rem 1rem;
+  }
 }
 
 /* Scroll fade effect */
@@ -147,17 +162,17 @@
   position: fixed;
   left: 0;
   right: 0;
-  height: 100px;
+  height: 80px;
   pointer-events: none;
   z-index: 50;
 }
 
 .container::before {
   top: 0;
-  background: linear-gradient(to bottom, #0a0a0f 0%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(5, 5, 15, 0.9) 0%, transparent 100%);
 }
 
 .container::after {
   bottom: 0;
-  background: linear-gradient(to top, #0a0a0f 0%, transparent 100%);
+  background: linear-gradient(to top, rgba(5, 5, 15, 0.9) 0%, transparent 100%);
 }

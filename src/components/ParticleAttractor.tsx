@@ -155,20 +155,18 @@ const fragmentShader = /* glsl */ `
     if (dist > 0.5) discard;
 
     float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-    alpha = pow(alpha, 1.5);
+    alpha = pow(alpha, 2.0);
 
     float pulse = 0.8 + 0.2 * sin(u_time * u_pulseFrequency * 6.28318);
 
     float colorMix = smoothstep(0.0, 2.0, v_distanceToAttractor);
     vec3 color = mix(u_color, u_secondaryColor, colorMix);
 
-    float brightness = 1.0 + (1.0 - min(v_distanceToAttractor, 1.0)) * u_attractorActive * 0.5;
+    float brightness = 0.6 + (1.0 - min(v_distanceToAttractor, 1.0)) * u_attractorActive * 0.3;
     color *= brightness * pulse;
 
-    float innerGlow = 1.0 - smoothstep(0.0, 0.3, dist);
-    color += vec3(1.0) * innerGlow * 0.3 * u_attractorActive;
-
-    alpha *= v_life;
+    // Much lower alpha to prevent white-out
+    alpha *= v_life * 0.15;
 
     gl_FragColor = vec4(color, alpha);
   }
@@ -191,11 +189,11 @@ interface ParticleAttractorProps {
 // ═══════════════════════════════════════════════════════════════════
 
 export function ParticleAttractor({
-  count = 1500,
+  count = 300,
   sefirah,
   attractorPosition,
   attractorActive,
-  baseSize = 4
+  baseSize = 2
 }: ParticleAttractorProps) {
   const meshRef = useRef<THREE.Points>(null)
   useThree() // For reactive updates

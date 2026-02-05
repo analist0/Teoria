@@ -36,7 +36,7 @@ function AttractorRenderer() {
             )
           }
           attractorActive={attractor.active ? 1 : 0}
-          count={attractor.active ? 2000 : 500}
+          count={attractor.active ? 400 : 100}
         />
       ))}
 
@@ -45,8 +45,8 @@ function AttractorRenderer() {
         <ParticleAttractor
           sefirah={currentSefirah}
           attractorPosition={new THREE.Vector3(0, 0, 0)}
-          attractorActive={0.3}
-          count={800}
+          attractorActive={0.2}
+          count={150}
         />
       )}
     </>

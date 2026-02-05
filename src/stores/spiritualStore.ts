@@ -21,10 +21,10 @@ import type {
 const defaultPostProcess: PostProcessConfig = {
   bloom: {
     enabled: true,
-    intensity: 1.5,
-    luminanceThreshold: 0.2,
+    intensity: 0.6,
+    luminanceThreshold: 0.4,
     luminanceSmoothing: 0.9,
-    radius: 0.8
+    radius: 0.4
   },
   depthOfField: {
     enabled: false,
