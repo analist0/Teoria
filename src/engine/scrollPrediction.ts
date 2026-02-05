@@ -286,19 +286,27 @@ export function domToThreeWorld(
 
 type ScrollCallback = (state: ScrollState) => void
 
-let scrollCallbacks: ScrollCallback[] = []
-let isListening = false
+interface ListenerEntry {
+  callbacks: ScrollCallback[]
+  handler: (event: Event) => void
+}
 
-function handleScroll(event: Event) {
-  const scrollTop =
-    event.target === document
-      ? window.scrollY
-      : (event.target as HTMLElement).scrollTop
+// Track listeners per element to avoid memory leaks
+const elementListeners = new WeakMap<EventTarget, ListenerEntry>()
+let windowListener: ListenerEntry | null = null
 
-  const state = updateScrollState(scrollTop)
+function createScrollHandler(callbacks: ScrollCallback[]) {
+  return (event: Event) => {
+    const scrollTop =
+      event.target === document
+        ? window.scrollY
+        : (event.target as HTMLElement).scrollTop
 
-  for (const callback of scrollCallbacks) {
-    callback(state)
+    const state = updateScrollState(scrollTop)
+
+    for (const callback of callbacks) {
+      callback(state)
+    }
   }
 }
 
@@ -309,21 +317,44 @@ export function startScrollTracking(
   callback: ScrollCallback,
   element?: HTMLElement
 ): () => void {
-  scrollCallbacks.push(callback)
+  const target: EventTarget = element || window
+  const isWindow = !element
 
-  if (!isListening) {
-    const target = element || window
-    target.addEventListener('scroll', handleScroll, { passive: true })
-    isListening = true
+  // Get or create listener entry for this target
+  let entry: ListenerEntry | null = isWindow
+    ? windowListener
+    : elementListeners.get(target) || null
+
+  if (!entry) {
+    const callbacks: ScrollCallback[] = []
+    const handler = createScrollHandler(callbacks)
+    entry = { callbacks, handler }
+
+    if (isWindow) {
+      windowListener = entry
+    } else {
+      elementListeners.set(target, entry)
+    }
+
+    target.addEventListener('scroll', handler, { passive: true })
   }
+
+  entry.callbacks.push(callback)
 
   // Return cleanup function
   return () => {
-    scrollCallbacks = scrollCallbacks.filter((cb) => cb !== callback)
-    if (scrollCallbacks.length === 0 && isListening) {
-      const target = element || window
-      target.removeEventListener('scroll', handleScroll)
-      isListening = false
+    if (!entry) return
+
+    entry.callbacks = entry.callbacks.filter((cb) => cb !== callback)
+
+    if (entry.callbacks.length === 0) {
+      target.removeEventListener('scroll', entry.handler)
+
+      if (isWindow) {
+        windowListener = null
+      } else {
+        elementListeners.delete(target)
+      }
     }
   }
 }

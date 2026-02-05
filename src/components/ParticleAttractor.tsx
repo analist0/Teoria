@@ -260,6 +260,13 @@ export function ParticleAttractor({
     })
   }, [sefirah, attractorPosition, attractorActive, visuals])
 
+  // Dispose material on unmount to prevent GPU memory leak
+  useEffect(() => {
+    return () => {
+      material.dispose()
+    }
+  }, [material])
+
   // Update uniforms on each frame
   useFrame((state, delta) => {
     if (material.uniforms) {

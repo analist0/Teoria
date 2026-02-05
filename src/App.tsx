@@ -4,12 +4,13 @@
  * מנוע האור הרוחני - אפליקציית סידור אינטראקטיבית
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { SpiritualCanvas } from '@/components/SpiritualCanvas'
 import { SpiritualTextComponent } from '@/components/SpiritualText'
 import { ALL_PRAYERS } from '@/data/prayers'
 import type { SpiritualText, Sefirah } from '@/engine/types'
 import { SEFIROT_VISUALS } from '@/engine/sefirot'
+import { useCurrentSefirah, useSpiritualStore } from '@/stores/spiritualStore'
 import '@/styles/global.css'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -127,13 +128,20 @@ function SefirahIndicator({ sefirah }: SefirahIndicatorProps) {
 
 export default function App() {
   const [selectedPrayer, setSelectedPrayer] = useState<SpiritualText>(ALL_PRAYERS[0])
-  const [currentSefirah, setCurrentSefirah] = useState<Sefirah | null>(
-    selectedPrayer.defaultSefirah || null
-  )
+
+  // Use sefirah from global store to stay in sync with word activations
+  const currentSefirah = useCurrentSefirah()
+  const setCurrentSefirah = useSpiritualStore((state) => state.setCurrentSefirah)
+
+  // Set initial sefirah when prayer changes
+  useEffect(() => {
+    if (selectedPrayer.defaultSefirah) {
+      setCurrentSefirah(selectedPrayer.defaultSefirah)
+    }
+  }, [selectedPrayer, setCurrentSefirah])
 
   const handlePrayerSelect = useCallback((prayer: SpiritualText) => {
     setSelectedPrayer(prayer)
-    setCurrentSefirah(prayer.defaultSefirah || null)
   }, [])
 
   return (
