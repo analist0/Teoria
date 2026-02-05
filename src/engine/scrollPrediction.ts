@@ -18,7 +18,6 @@ interface ScrollHistory {
 
 const HISTORY_SIZE = 10
 const scrollHistory: ScrollHistory[] = []
-let lastScrollTime = 0
 
 /**
  * Calculate scroll velocity using recent history
@@ -112,8 +111,6 @@ export function updateScrollState(
     acceleration,
     500
   )
-
-  lastScrollTime = timestamp
 
   return {
     position: scrollTop,
@@ -290,7 +287,6 @@ export function domToThreeWorld(
 type ScrollCallback = (state: ScrollState) => void
 
 let scrollCallbacks: ScrollCallback[] = []
-let rafId: number | null = null
 let isListening = false
 
 function handleScroll(event: Event) {
@@ -304,14 +300,6 @@ function handleScroll(event: Event) {
   for (const callback of scrollCallbacks) {
     callback(state)
   }
-}
-
-function throttledScrollHandler() {
-  if (rafId) return
-
-  rafId = requestAnimationFrame(() => {
-    rafId = null
-  })
 }
 
 /**

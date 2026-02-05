@@ -6,28 +6,10 @@
 
 import { useEffect, useCallback, useRef } from 'react'
 import { useSpiritualStore } from '@/stores/spiritualStore'
-import {
-  startScrollTracking,
-  getViewport,
-  calculateWordVisibility,
-  shouldActivateWord,
-  domToThreeWorld
-} from '@/engine/scrollPrediction'
-import type { SpiritualWord, Sefirah, AttractorNode } from '@/engine/types'
+import { domToThreeWorld } from '@/engine/scrollPrediction'
+import type { SpiritualWord, AttractorNode } from '@/engine/types'
 
-interface UseSpiritualEngineOptions {
-  predictionTime?: number
-  activationThreshold?: number
-  preActivationTime?: number
-}
-
-export function useSpiritualEngine(options: UseSpiritualEngineOptions = {}) {
-  const {
-    predictionTime = 500,
-    activationThreshold = 0.3,
-    preActivationTime = 300
-  } = options
-
+export function useSpiritualEngine() {
   const {
     isInitialized,
     isRunning,
@@ -91,14 +73,6 @@ export function useSpiritualEngine(options: UseSpiritualEngineOptions = {}) {
   const activateWord = useCallback(
     (word: SpiritualWord, element: HTMLElement) => {
       const attractorId = `attractor_${word.id}`
-
-      // Update position in case of scroll
-      const rect = element.getBoundingClientRect()
-      const position = domToThreeWorld(rect, {
-        fov: 75,
-        aspect: window.innerWidth / window.innerHeight,
-        position: { z: 5 }
-      })
 
       // Check if attractor exists
       const existing = activeAttractors.find((a) => a.id === attractorId)

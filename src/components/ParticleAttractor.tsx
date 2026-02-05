@@ -198,7 +198,7 @@ export function ParticleAttractor({
   baseSize = 4
 }: ParticleAttractorProps) {
   const meshRef = useRef<THREE.Points>(null)
-  const { viewport } = useThree()
+  useThree() // For reactive updates
 
   const visuals = SEFIROT_VISUALS[sefirah]
 

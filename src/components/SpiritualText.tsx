@@ -13,7 +13,7 @@ import {
   memo
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { SpiritualText, SpiritualWord, SpiritualVerse, Sefirah } from '@/engine/types'
+import type { SpiritualText, SpiritualWord, SpiritualVerse } from '@/engine/types'
 import { SEFIROT_VISUALS } from '@/engine/sefirot'
 import { useSpiritualStore } from '@/stores/spiritualStore'
 import {
@@ -38,7 +38,7 @@ interface SpiritualWordProps {
 
 const SpiritualWordComponent = memo(
   forwardRef<HTMLSpanElement, SpiritualWordProps>(
-    ({ word, isActive, onActivate, onDeactivate }, ref) => {
+    ({ word, isActive }, ref) => {
       const visuals = word.sefirah ? SEFIROT_VISUALS[word.sefirah] : null
 
       const getWordClass = () => {
@@ -109,7 +109,7 @@ const SpiritualVerseComponent = memo(
   ({ verse, activeWords, onWordActivate, onWordDeactivate, registerWordRef }: SpiritualVerseProps) => {
     return (
       <p className={styles.verse} data-verse-id={verse.id}>
-        {verse.words.map((word, index) => (
+        {verse.words.map((word) => (
           <SpiritualWordComponent
             key={word.id}
             ref={(el) => registerWordRef(word.id, el)}

@@ -118,7 +118,7 @@ function determineWordType(word: string, divineName?: DivineName): WordType {
 function calculateEnergyLevel(
   wordType: WordType,
   divineName?: DivineName,
-  kavvanah?: string
+  _kavvanah?: string
 ): number {
   switch (wordType) {
     case 'שם':
@@ -221,7 +221,7 @@ export function parseSpiritualText(
 ): SpiritualText {
   const lines = text.split(/\n/).filter(line => line.trim().length > 0)
 
-  const verses = lines.map((line, index) => {
+  const verses = lines.map((line) => {
     // Check for source indicators like (תהילים כ"ג)
     const sourceMatch = line.match(/\(([^)]+)\)$/)
     const source = sourceMatch ? sourceMatch[1] : undefined

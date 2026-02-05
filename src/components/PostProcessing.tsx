@@ -1,15 +1,12 @@
 /**
  * ✨ Post Processing Pipeline
  *
- * Bloom, Depth of Field, Chromatic Aberration, Vignette, and Noise
+ * Bloom, Depth of Field, Vignette, and Noise
  */
 
-import { useRef, useEffect } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
 import {
   EffectComposer,
   Bloom,
-  ChromaticAberration,
   Vignette,
   Noise,
   DepthOfField
@@ -28,44 +25,29 @@ export function PostProcessing({ config: propConfig }: PostProcessingProps) {
 
   return (
     <EffectComposer multisampling={0}>
-      {config.bloom.enabled && (
-        <Bloom
-          intensity={config.bloom.intensity}
-          luminanceThreshold={config.bloom.luminanceThreshold}
-          luminanceSmoothing={config.bloom.luminanceSmoothing}
-          kernelSize={KernelSize.LARGE}
-          mipmapBlur
-        />
-      )}
+      <Bloom
+        intensity={config.bloom.enabled ? config.bloom.intensity : 0}
+        luminanceThreshold={config.bloom.luminanceThreshold}
+        luminanceSmoothing={config.bloom.luminanceSmoothing}
+        kernelSize={KernelSize.LARGE}
+        mipmapBlur
+      />
 
-      {config.depthOfField.enabled && (
-        <DepthOfField
-          focusDistance={config.depthOfField.focusDistance}
-          focalLength={config.depthOfField.focalLength}
-          bokehScale={config.depthOfField.bokehScale}
-        />
-      )}
+      <DepthOfField
+        focusDistance={config.depthOfField.focusDistance}
+        focalLength={config.depthOfField.focalLength}
+        bokehScale={config.depthOfField.enabled ? config.depthOfField.bokehScale : 0}
+      />
 
-      {config.chromaticAberration.enabled && (
-        <ChromaticAberration
-          blendFunction={BlendFunction.NORMAL}
-          offset={[config.chromaticAberration.offset, config.chromaticAberration.offset]}
-        />
-      )}
+      <Vignette
+        darkness={config.vignette.enabled ? config.vignette.darkness : 0}
+        offset={config.vignette.offset}
+      />
 
-      {config.vignette.enabled && (
-        <Vignette
-          darkness={config.vignette.darkness}
-          offset={config.vignette.offset}
-        />
-      )}
-
-      {config.noise.enabled && (
-        <Noise
-          opacity={config.noise.opacity}
-          blendFunction={BlendFunction.OVERLAY}
-        />
-      )}
+      <Noise
+        opacity={config.noise.enabled ? config.noise.opacity : 0}
+        blendFunction={BlendFunction.OVERLAY}
+      />
     </EffectComposer>
   )
 }
