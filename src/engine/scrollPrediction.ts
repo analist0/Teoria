@@ -295,15 +295,16 @@ interface ListenerEntry {
 const elementListeners = new WeakMap<EventTarget, ListenerEntry>()
 let windowListener: ListenerEntry | null = null
 
-function createScrollHandler(callbacks: ScrollCallback[]) {
-  return (event: Event) => {
-    const scrollTop =
-      event.target === document
-        ? window.scrollY
-        : (event.target as HTMLElement).scrollTop
-
+function createScrollHandler(
+  callbacks: ScrollCallback[],
+  getScrollTop: () => number
+) {
+  return () => {
+    const scrollTop = getScrollTop()
     const state = updateScrollState(scrollTop)
 
+    // NOTE: callbacks must be mutated in-place (not reassigned),
+    // otherwise this handler will keep calling stale callbacks.
     for (const callback of callbacks) {
       callback(state)
     }
@@ -327,7 +328,12 @@ export function startScrollTracking(
 
   if (!entry) {
     const callbacks: ScrollCallback[] = []
-    const handler = createScrollHandler(callbacks)
+
+    const getScrollTop = isWindow
+      ? () => window.scrollY
+      : () => (element?.scrollTop ?? 0)
+
+    const handler = createScrollHandler(callbacks, getScrollTop)
     entry = { callbacks, handler }
 
     if (isWindow) {
@@ -345,7 +351,8 @@ export function startScrollTracking(
   return () => {
     if (!entry) return
 
-    entry.callbacks = entry.callbacks.filter((cb) => cb !== callback)
+    const idx = entry.callbacks.indexOf(callback)
+    if (idx >= 0) entry.callbacks.splice(idx, 1)
 
     if (entry.callbacks.length === 0) {
       target.removeEventListener('scroll', entry.handler)

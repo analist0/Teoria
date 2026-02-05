@@ -182,6 +182,25 @@ export function SpiritualTextComponent({
     [text]
   )
 
+  // Deactivate word effect
+  const handleWordDeactivate = useCallback(
+    (wordId: string) => {
+      setActiveWords((prev) => {
+        const next = new Set(prev)
+        next.delete(wordId)
+        return next
+      })
+
+      deactivateAttractor(`attractor_${wordId}`)
+
+      // Remove attractor after fade
+      setTimeout(() => {
+        removeAttractor(`attractor_${wordId}`)
+      }, 800)
+    },
+    [deactivateAttractor, removeAttractor]
+  )
+
   // Activate word effect
   const handleWordActivate = useCallback(
     (wordId: string) => {
@@ -228,26 +247,13 @@ export function SpiritualTextComponent({
         handleWordDeactivate(wordId)
       }, word.duration)
     },
-    [findWord, addAttractor, activateAttractor, setCurrentSefirah]
-  )
-
-  // Deactivate word effect
-  const handleWordDeactivate = useCallback(
-    (wordId: string) => {
-      setActiveWords((prev) => {
-        const next = new Set(prev)
-        next.delete(wordId)
-        return next
-      })
-
-      deactivateAttractor(`attractor_${wordId}`)
-
-      // Remove attractor after fade
-      setTimeout(() => {
-        removeAttractor(`attractor_${wordId}`)
-      }, 800)
-    },
-    [deactivateAttractor, removeAttractor]
+    [
+      findWord,
+      addAttractor,
+      activateAttractor,
+      setCurrentSefirah,
+      handleWordDeactivate
+    ]
   )
 
   // Scroll tracking and word activation
@@ -269,7 +275,7 @@ export function SpiritualTextComponent({
           handleWordActivate(wordId)
         }
       }
-    }, containerRef.current || undefined)
+    })
 
     return cleanup
   }, [findWord, activeWords, handleWordActivate])
