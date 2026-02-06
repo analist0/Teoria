@@ -1,348 +1,788 @@
 /**
  * 🧬 Spiritual Light Engine - Main Application
  *
- * מנוע האור הרוחני - אפליקציית סידור אינטראקטיבית
+ * סידור דיגיטלי מקצועי עם כוונות
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SpiritualCanvas } from '@/components/SpiritualCanvas'
-import { SpiritualTextComponent } from '@/components/SpiritualText'
-import { ControlPanel } from '@/components/ControlPanel'
-import {
-  AddPrayerButton,
-  EditModeToggle,
-  AddPrayerModal,
-  KavvanahEditor,
-  usePrayerEditor
-} from '@/components/PrayerEditor'
 import { ALL_PRAYERS } from '@/data/prayers'
-import type { SpiritualText, Sefirah, SpiritualWord } from '@/engine/types'
+import { parseSpiritualText } from '@/engine/textEngine'
+import type { SpiritualText, SpiritualWord } from '@/engine/types'
 import { SEFIROT_VISUALS } from '@/engine/sefirot'
-import { useCurrentSefirah, useSpiritualStore } from '@/stores/spiritualStore'
 import '@/styles/global.css'
 
 // ═══════════════════════════════════════════════════════════════════
-// PRAYER SELECTOR
+// TYPES
 // ═══════════════════════════════════════════════════════════════════
 
-interface PrayerSelectorProps {
+interface Category {
+  id: string
+  name: string
+  isBuiltIn: boolean
   prayers: SpiritualText[]
-  selectedId: string
-  onSelect: (prayer: SpiritualText) => void
-  customPrayerCount?: number
 }
 
-function PrayerSelector({ prayers, selectedId, onSelect, customPrayerCount = 0 }: PrayerSelectorProps) {
-  const builtInPrayers = prayers.slice(0, prayers.length - customPrayerCount)
-  const customPrayers = prayers.slice(prayers.length - customPrayerCount)
+// ═══════════════════════════════════════════════════════════════════
+// LOCAL STORAGE
+// ═══════════════════════════════════════════════════════════════════
 
+const CATEGORIES_KEY = 'siddur_categories'
+
+function loadCategories(): Category[] {
+  try {
+    const saved = localStorage.getItem(CATEGORIES_KEY)
+    if (saved) return JSON.parse(saved)
+  } catch {}
+  return []
+}
+
+function saveCategories(categories: Category[]): void {
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories.filter(c => !c.isBuiltIn)))
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DEFAULT CATEGORIES
+// ═══════════════════════════════════════════════════════════════════
+
+function getDefaultCategories(): Category[] {
+  return [
+    {
+      id: 'shema',
+      name: 'קריאת שמע',
+      isBuiltIn: true,
+      prayers: ALL_PRAYERS.filter(p => p.title.includes('שמע'))
+    },
+    {
+      id: 'amidah',
+      name: 'תפילת עמידה',
+      isBuiltIn: true,
+      prayers: ALL_PRAYERS.filter(p => p.title.includes('עמידה') || p.title.includes('אבות'))
+    },
+    {
+      id: 'kedushah',
+      name: 'קדושה',
+      isBuiltIn: true,
+      prayers: ALL_PRAYERS.filter(p => p.title.includes('קדושה'))
+    },
+    {
+      id: 'tehilim',
+      name: 'תהילים',
+      isBuiltIn: true,
+      prayers: ALL_PRAYERS.filter(p => p.title.includes('תהילים') || p.title.includes('מזמור'))
+    },
+    {
+      id: 'brachot',
+      name: 'ברכות',
+      isBuiltIn: true,
+      prayers: ALL_PRAYERS.filter(p => p.title.includes('ברכת') || p.title.includes('אנא'))
+    }
+  ]
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CATEGORY SIDEBAR
+// ═══════════════════════════════════════════════════════════════════
+
+interface CategorySidebarProps {
+  categories: Category[]
+  selectedCategory: string | null
+  onSelectCategory: (id: string) => void
+  onAddCategory: () => void
+  onDeleteCategory: (id: string) => void
+}
+
+function CategorySidebar({
+  categories,
+  selectedCategory,
+  onSelectCategory,
+  onAddCategory,
+  onDeleteCategory
+}: CategorySidebarProps) {
   return (
-    <nav style={{
-      position: 'fixed',
-      top: '1rem',
-      right: '1rem',
-      zIndex: 100,
+    <aside style={{
+      width: '200px',
+      background: '#0a0a12',
+      borderLeft: '1px solid #222',
+      padding: '1rem',
       display: 'flex',
       flexDirection: 'column',
       gap: '0.5rem',
-      background: 'rgba(10, 10, 15, 0.9)',
-      padding: '1rem',
-      borderRadius: '12px',
-      border: '1px solid rgba(100, 150, 255, 0.2)',
-      backdropFilter: 'blur(10px)',
-      maxHeight: '80vh',
       overflowY: 'auto'
     }}>
-      <span style={{
-        fontSize: '0.85rem',
-        color: '#888',
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: '0.5rem'
       }}>
-        בחר תפילה:
-      </span>
-      {builtInPrayers.map((prayer) => (
+        <h3 style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>קטגוריות</h3>
+        <button
+          onClick={onAddCategory}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#4488ff',
+            fontSize: '1.5rem',
+            cursor: 'pointer',
+            padding: 0,
+            lineHeight: 1
+          }}
+        >
+          +
+        </button>
+      </div>
+
+      {categories.map((cat) => (
+        <div
+          key={cat.id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          <button
+            onClick={() => onSelectCategory(cat.id)}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              background: selectedCategory === cat.id ? '#1a1a2e' : 'transparent',
+              border: selectedCategory === cat.id ? '1px solid #333' : '1px solid transparent',
+              borderRadius: '8px',
+              color: selectedCategory === cat.id ? '#fff' : '#aaa',
+              textAlign: 'right',
+              cursor: 'pointer',
+              fontSize: '0.95rem'
+            }}
+          >
+            {cat.name}
+          </button>
+          {!cat.isBuiltIn && (
+            <button
+              onClick={() => onDeleteCategory(cat.id)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ff4444',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                fontSize: '0.8rem'
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+    </aside>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PRAYER LIST
+// ═══════════════════════════════════════════════════════════════════
+
+interface PrayerListProps {
+  prayers: SpiritualText[]
+  selectedPrayer: string | null
+  onSelectPrayer: (prayer: SpiritualText) => void
+  onAddPrayer: () => void
+}
+
+function PrayerList({ prayers, selectedPrayer, onSelectPrayer, onAddPrayer }: PrayerListProps) {
+  if (prayers.length === 0) {
+    return (
+      <div style={{
+        padding: '2rem',
+        textAlign: 'center',
+        color: '#666'
+      }}>
+        <p>אין תפילות בקטגוריה זו</p>
+        <button
+          onClick={onAddPrayer}
+          style={{
+            marginTop: '1rem',
+            padding: '0.75rem 1.5rem',
+            background: '#1a1a2e',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            color: '#aaa',
+            cursor: 'pointer'
+          }}
+        >
+          + הוסף תפילה
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.5rem',
+      padding: '1rem'
+    }}>
+      {prayers.map((prayer) => (
         <button
           key={prayer.id}
-          onClick={() => onSelect(prayer)}
+          onClick={() => onSelectPrayer(prayer)}
           style={{
-            padding: '0.5rem 1rem',
-            fontSize: '0.95rem',
-            color: selectedId === prayer.id ? '#ffffff' : '#aabbdd',
-            background: selectedId === prayer.id
-              ? 'linear-gradient(135deg, rgba(68, 136, 255, 0.3), rgba(136, 170, 255, 0.1))'
-              : 'transparent',
-            border: '1px solid',
-            borderColor: selectedId === prayer.id
-              ? 'rgba(100, 150, 255, 0.5)'
-              : 'transparent',
+            padding: '1rem',
+            background: selectedPrayer === prayer.id ? '#1a1a2e' : '#0d0d18',
+            border: selectedPrayer === prayer.id ? '1px solid #4488ff40' : '1px solid #222',
             borderRadius: '8px',
-            cursor: 'pointer',
+            color: selectedPrayer === prayer.id ? '#fff' : '#ccc',
             textAlign: 'right',
-            transition: 'all 0.2s ease'
+            cursor: 'pointer',
+            fontSize: '1.1rem'
           }}
         >
           {prayer.title}
         </button>
       ))}
-
-      {customPrayers.length > 0 && (
-        <>
-          <span style={{
-            fontSize: '0.75rem',
-            color: '#666',
-            marginTop: '0.5rem',
-            borderTop: '1px solid rgba(255,255,255,0.1)',
-            paddingTop: '0.5rem'
-          }}>
-            תפילות שלי:
-          </span>
-          {customPrayers.map((prayer) => (
-            <button
-              key={prayer.id}
-              onClick={() => onSelect(prayer)}
-              style={{
-                padding: '0.5rem 1rem',
-                fontSize: '0.95rem',
-                color: selectedId === prayer.id ? '#ffffff' : '#ffcc88',
-                background: selectedId === prayer.id
-                  ? 'linear-gradient(135deg, rgba(255, 136, 68, 0.3), rgba(255, 170, 136, 0.1))'
-                  : 'transparent',
-                border: '1px solid',
-                borderColor: selectedId === prayer.id
-                  ? 'rgba(255, 150, 100, 0.5)'
-                  : 'transparent',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                textAlign: 'right',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {prayer.title}
-            </button>
-          ))}
-        </>
-      )}
-    </nav>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SEFIRAH INDICATOR
-// ═══════════════════════════════════════════════════════════════════
-
-interface SefirahIndicatorProps {
-  sefirah: Sefirah | null
-}
-
-function SefirahIndicator({ sefirah }: SefirahIndicatorProps) {
-  if (!sefirah) return null
-
-  const visuals = SEFIROT_VISUALS[sefirah]
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '1rem',
-      left: '1rem',
-      zIndex: 100,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.75rem',
-      padding: '0.75rem 1.5rem',
-      background: 'rgba(10, 10, 15, 0.9)',
-      borderRadius: '24px',
-      border: `1px solid ${visuals.primaryColor}40`,
-      backdropFilter: 'blur(10px)'
-    }}>
-      <div style={{
-        width: '12px',
-        height: '12px',
-        borderRadius: '50%',
-        background: visuals.primaryColor,
-        boxShadow: `0 0 10px ${visuals.primaryColor}, 0 0 20px ${visuals.primaryColor}80`,
-        animation: 'pulse 2s ease-in-out infinite'
-      }} />
-      <span style={{
-        fontSize: '1rem',
-        color: visuals.primaryColor,
-        fontWeight: 500
-      }}>
-        {sefirah}
-      </span>
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// KAVVANAH OVERLAY - תצוגת כוונה מרכזית מרשימה
+// KAVVANAH TOOLTIP - כוונה קטנה מעל המילה
 // ═══════════════════════════════════════════════════════════════════
 
-interface KavvanahOverlayProps {
-  word: SpiritualWord | null
-  sefirah: Sefirah | null
+interface KavvanahTooltipProps {
+  word: SpiritualWord
+  position: { x: number; y: number }
+  onFadeComplete: () => void
 }
 
-function KavvanahOverlay({ word, sefirah }: KavvanahOverlayProps) {
-  const visuals = sefirah ? SEFIROT_VISUALS[sefirah] : null
-  const color = visuals?.primaryColor || '#4488ff'
+function KavvanahTooltip({ word, position, onFadeComplete }: KavvanahTooltipProps) {
+  const [isVisible, setIsVisible] = useState(true)
+
+  useEffect(() => {
+    // Stay visible for 2 seconds
+    const timer = setTimeout(() => {
+      setIsVisible(false)
+    }, 2000)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  const color = word.sefirah ? SEFIROT_VISUALS[word.sefirah].primaryColor : '#4488ff'
 
   return (
-    <AnimatePresence>
-      {word && word.kavvanah && (
-        <motion.div
-          key={word.id}
-          initial={{ opacity: 0, scale: 0.8, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: -20 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-          style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 200,
-            padding: '2rem 3rem',
-            background: 'rgba(5, 5, 15, 0.98)',
-            borderRadius: '24px',
-            border: `2px solid ${color}60`,
-            backdropFilter: 'blur(20px)',
-            boxShadow: `
-              0 0 60px ${color}40,
-              0 0 120px ${color}20,
-              0 8px 32px rgba(0, 0, 0, 0.8),
-              inset 0 0 60px ${color}10
-            `,
-            textAlign: 'center',
-            maxWidth: '90vw',
-            minWidth: '280px'
-          }}
-        >
-          {/* Decorative light lines above */}
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: isVisible ? 1 : 0, y: 0 }}
+      transition={{ duration: isVisible ? 0.2 : 0.5 }}
+      onAnimationComplete={() => {
+        if (!isVisible) onFadeComplete()
+      }}
+      style={{
+        position: 'fixed',
+        left: position.x,
+        top: position.y - 10,
+        transform: 'translate(-50%, -100%)',
+        zIndex: 1000,
+        pointerEvents: 'none'
+      }}
+    >
+      <div style={{
+        background: '#0a0a15',
+        border: `1px solid ${color}50`,
+        borderRadius: '8px',
+        padding: '0.5rem 0.75rem',
+        boxShadow: `0 4px 20px rgba(0,0,0,0.5), 0 0 20px ${color}20`,
+        maxWidth: '280px',
+        textAlign: 'center'
+      }}>
+        {/* Kavvanah text */}
+        <div style={{
+          fontSize: '0.9rem',
+          color: '#d0d8e8',
+          lineHeight: 1.5,
+          direction: 'rtl'
+        }}>
+          {word.kavvanah}
+        </div>
+
+        {/* Gematria */}
+        {word.gematria && (
           <div style={{
-            position: 'absolute',
-            top: '-40px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: '8px',
-            justifyContent: 'center'
+            marginTop: '0.25rem',
+            fontSize: '0.75rem',
+            color: color
           }}>
-            {[...Array(5)].map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 30, opacity: 0.8 }}
-                transition={{ delay: i * 0.1, duration: 0.3 }}
-                style={{
-                  width: '2px',
-                  background: `linear-gradient(to top, ${color}, transparent)`,
-                  borderRadius: '2px',
-                  transform: `rotate(${-20 + i * 10}deg)`
-                }}
-              />
-            ))}
+            גימטריה: {word.gematria}
           </div>
+        )}
 
-          {/* Main word */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            style={{
-              fontSize: '2.5rem',
-              fontWeight: 700,
-              color: '#ffffff',
-              marginBottom: '1rem',
-              textShadow: `
-                0 0 20px ${color},
-                0 0 40px ${color}80,
-                0 0 60px ${color}60
-              `,
-              fontFamily: "'Frank Ruhl Libre', serif"
-            }}
-          >
-            {word.text}
-          </motion.div>
+        {/* Arrow pointing down */}
+        <div style={{
+          position: 'absolute',
+          bottom: '-6px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
+          borderLeft: '6px solid transparent',
+          borderRight: '6px solid transparent',
+          borderTop: `6px solid ${color}50`
+        }} />
+      </div>
+    </motion.div>
+  )
+}
 
-          {/* Kavvanah text */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+// ═══════════════════════════════════════════════════════════════════
+// BOOK VIEW - תצוגת ספר
+// ═══════════════════════════════════════════════════════════════════
+
+interface BookViewProps {
+  prayer: SpiritualText | null
+  currentWordIndex: number
+  isPlaying: boolean
+  activeKavvanot: Map<string, { word: SpiritualWord; position: { x: number; y: number } }>
+  onRemoveKavvanah: (wordId: string) => void
+}
+
+function BookView({ prayer, currentWordIndex, isPlaying, activeKavvanot, onRemoveKavvanah }: BookViewProps) {
+  if (!prayer) {
+    return (
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#666',
+        fontSize: '1.2rem'
+      }}>
+        בחר תפילה מהרשימה
+      </div>
+    )
+  }
+
+  // Get all words flat
+  const allWords = useMemo(() => {
+    const words: SpiritualWord[] = []
+    for (const verse of prayer.verses) {
+      words.push(...verse.words)
+    }
+    return words
+  }, [prayer])
+
+  const currentWord = allWords[currentWordIndex]
+
+  return (
+    <div style={{
+      flex: 1,
+      padding: '2rem',
+      overflowY: 'auto',
+      background: '#08080f'
+    }}>
+      {/* Title */}
+      <h1 style={{
+        textAlign: 'center',
+        fontSize: '2rem',
+        color: '#fff',
+        marginBottom: '2rem',
+        fontFamily: "'Frank Ruhl Libre', serif"
+      }}>
+        {prayer.title}
+      </h1>
+
+      {/* Verses */}
+      <div style={{
+        maxWidth: '700px',
+        margin: '0 auto',
+        background: '#0d0d18',
+        padding: '2rem',
+        borderRadius: '12px',
+        border: '1px solid #1a1a2e'
+      }}>
+        {prayer.verses.map((verse) => (
+          <p
+            key={verse.id}
             style={{
-              fontSize: '1.3rem',
-              color: '#c8d8f8',
-              lineHeight: 1.8,
-              direction: 'rtl',
+              fontSize: '1.5rem',
+              lineHeight: 2.2,
+              textAlign: 'center',
+              margin: '1rem 0',
               fontFamily: "'Frank Ruhl Libre', serif",
-              padding: '0.5rem 0'
+              color: '#e0e0f0'
             }}
           >
-            {word.kavvanah}
-          </motion.div>
+            {verse.words.map((word) => {
+              const isCurrentWord = isPlaying && currentWord?.id === word.id
+              const hasKavvanah = word.kavvanah && word.type !== 'רגיל'
+              const color = word.sefirah ? SEFIROT_VISUALS[word.sefirah].primaryColor : '#4488ff'
 
-          {/* Divine name type indicator */}
-          {word.divineName && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              style={{
-                marginTop: '1rem',
-                padding: '0.5rem 1rem',
-                background: `${color}20`,
-                borderRadius: '20px',
-                display: 'inline-block',
-                fontSize: '0.9rem',
-                color: color
-              }}
-            >
-              שם קדוש: {word.divineName}
-            </motion.div>
-          )}
+              return (
+                <span
+                  key={word.id}
+                  data-word-id={word.id}
+                  style={{
+                    display: 'inline',
+                    margin: '0 0.15em',
+                    color: isCurrentWord
+                      ? '#fff'
+                      : hasKavvanah
+                        ? color
+                        : '#e0e0f0',
+                    fontWeight: hasKavvanah ? 600 : 400,
+                    textShadow: isCurrentWord
+                      ? `0 0 10px ${color}, 0 0 20px ${color}`
+                      : 'none',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {word.text}
+                </span>
+              )
+            })}
+          </p>
+        ))}
+      </div>
 
-          {/* Gematria if available */}
-          {word.gematria && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.35 }}
-              style={{
-                marginTop: '0.75rem',
-                fontSize: '0.95rem',
-                color: '#8898b8'
-              }}
-            >
-              גימטריה: {word.gematria}
-            </motion.div>
-          )}
+      {/* Kavvanah Tooltips */}
+      <AnimatePresence>
+        {Array.from(activeKavvanot.entries()).map(([wordId, { word, position }]) => (
+          <KavvanahTooltip
+            key={wordId}
+            word={word}
+            position={position}
+            onFadeComplete={() => onRemoveKavvanah(wordId)}
+          />
+        ))}
+      </AnimatePresence>
+    </div>
+  )
+}
 
-          {/* Pulsing ring effect */}
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.5, 0, 0.5]
+// ═══════════════════════════════════════════════════════════════════
+// PLAYER CONTROLS - פקדי נגן פשוטים
+// ═══════════════════════════════════════════════════════════════════
+
+interface PlayerControlsProps {
+  isPlaying: boolean
+  onPlayPause: () => void
+  speed: number
+  onSpeedChange: (speed: number) => void
+  progress: number
+  onSeek: (progress: number) => void
+}
+
+function PlayerControls({
+  isPlaying,
+  onPlayPause,
+  speed,
+  onSpeedChange,
+  progress,
+  onSeek
+}: PlayerControlsProps) {
+  return (
+    <div style={{
+      height: '80px',
+      background: '#0a0a12',
+      borderTop: '1px solid #222',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '2rem',
+      padding: '0 2rem'
+    }}>
+      {/* Progress bar */}
+      <div
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const x = e.clientX - rect.left
+          onSeek(x / rect.width)
+        }}
+        style={{
+          flex: 1,
+          maxWidth: '400px',
+          height: '6px',
+          background: '#222',
+          borderRadius: '3px',
+          cursor: 'pointer',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{
+          width: `${progress * 100}%`,
+          height: '100%',
+          background: '#4488ff',
+          borderRadius: '3px',
+          transition: 'width 0.1s ease'
+        }} />
+      </div>
+
+      {/* Play button */}
+      <button
+        onClick={onPlayPause}
+        style={{
+          width: '50px',
+          height: '50px',
+          borderRadius: '50%',
+          background: '#4488ff',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {isPlaying ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+            <rect x="6" y="4" width="4" height="16" rx="1" />
+            <rect x="14" y="4" width="4" height="16" rx="1" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </button>
+
+      {/* Speed control */}
+      <div style={{ display: 'flex', gap: '0.25rem' }}>
+        {[0.5, 1, 1.5, 2].map((s) => (
+          <button
+            key={s}
+            onClick={() => onSpeedChange(s)}
+            style={{
+              padding: '0.4rem 0.6rem',
+              background: speed === s ? '#4488ff30' : 'transparent',
+              border: speed === s ? '1px solid #4488ff50' : '1px solid #333',
+              borderRadius: '4px',
+              color: speed === s ? '#fff' : '#888',
+              cursor: 'pointer',
+              fontSize: '0.8rem'
             }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: 'easeInOut'
+          >
+            {s}x
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADD CATEGORY MODAL
+// ═══════════════════════════════════════════════════════════════════
+
+interface AddCategoryModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (name: string) => void
+}
+
+function AddCategoryModal({ isOpen, onClose, onSave }: AddCategoryModalProps) {
+  const [name, setName] = useState('')
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0d0d18',
+          padding: '2rem',
+          borderRadius: '12px',
+          border: '1px solid #333',
+          width: '300px'
+        }}
+      >
+        <h3 style={{ color: '#fff', marginBottom: '1rem' }}>הוסף קטגוריה</h3>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="שם הקטגוריה"
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            background: '#1a1a2e',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            color: '#fff',
+            marginBottom: '1rem',
+            direction: 'rtl'
+          }}
+        />
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '0.5rem 1.5rem',
+              background: 'transparent',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#888',
+              cursor: 'pointer'
+            }}
+          >
+            ביטול
+          </button>
+          <button
+            onClick={() => {
+              if (name.trim()) {
+                onSave(name.trim())
+                setName('')
+                onClose()
+              }
             }}
             style={{
-              position: 'absolute',
-              top: '-4px',
-              left: '-4px',
-              right: '-4px',
-              bottom: '-4px',
-              borderRadius: '28px',
-              border: `2px solid ${color}`,
-              pointerEvents: 'none'
+              padding: '0.5rem 1.5rem',
+              background: '#4488ff',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              cursor: 'pointer'
             }}
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
+          >
+            שמור
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ADD PRAYER MODAL
+// ═══════════════════════════════════════════════════════════════════
+
+interface AddPrayerModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onSave: (title: string, text: string) => void
+}
+
+function AddPrayerModal({ isOpen, onClose, onSave }: AddPrayerModalProps) {
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+
+  if (!isOpen) return null
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#0d0d18',
+          padding: '2rem',
+          borderRadius: '12px',
+          border: '1px solid #333',
+          width: '450px',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}
+      >
+        <h3 style={{ color: '#fff', marginBottom: '1rem' }}>הוסף תפילה</h3>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="כותרת התפילה"
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            background: '#1a1a2e',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            color: '#fff',
+            marginBottom: '1rem',
+            direction: 'rtl'
+          }}
+        />
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="טקסט התפילה (כל שורה = פסוק)"
+          rows={10}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            background: '#1a1a2e',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            color: '#fff',
+            marginBottom: '1rem',
+            direction: 'rtl',
+            resize: 'vertical',
+            fontFamily: "'Frank Ruhl Libre', serif",
+            fontSize: '1.1rem',
+            lineHeight: 1.8
+          }}
+        />
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '0.5rem 1.5rem',
+              background: 'transparent',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#888',
+              cursor: 'pointer'
+            }}
+          >
+            ביטול
+          </button>
+          <button
+            onClick={() => {
+              if (title.trim() && text.trim()) {
+                onSave(title.trim(), text.trim())
+                setTitle('')
+                setText('')
+                onClose()
+              }
+            }}
+            style={{
+              padding: '0.5rem 1.5rem',
+              background: '#4488ff',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              cursor: 'pointer'
+            }}
+          >
+            שמור
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -351,39 +791,31 @@ function KavvanahOverlay({ word, sefirah }: KavvanahOverlayProps) {
 // ═══════════════════════════════════════════════════════════════════
 
 export default function App() {
-  const [selectedPrayer, setSelectedPrayer] = useState<SpiritualText>(ALL_PRAYERS[0])
+  // Categories and prayers
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = loadCategories()
+    return [...getDefaultCategories(), ...saved]
+  })
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>('shema')
+  const [selectedPrayer, setSelectedPrayer] = useState<SpiritualText | null>(null)
+
+  // Modals
+  const [showAddCategory, setShowAddCategory] = useState(false)
+  const [showAddPrayer, setShowAddPrayer] = useState(false)
+
+  // Player state
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
-  const [activeWord, setActiveWord] = useState<SpiritualWord | null>(null)
+
+  // Active kavvanot (word tooltips)
+  const [activeKavvanot, setActiveKavvanot] = useState<Map<string, { word: SpiritualWord; position: { x: number; y: number } }>>(new Map())
 
   const playbackRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Prayer Editor
-  const {
-    showAddModal,
-    setShowAddModal,
-    editMode,
-    setEditMode,
-    selectedWord,
-    setSelectedWord,
-    customPrayers,
-    addPrayer,
-    saveKavvanah,
-    getParsedCustomPrayers
-  } = usePrayerEditor()
-
-  // Combine built-in and custom prayers
-  const allPrayers = useMemo(() => {
-    return [...ALL_PRAYERS, ...getParsedCustomPrayers()]
-  }, [getParsedCustomPrayers, customPrayers])
-
-  // Use sefirah from global store to stay in sync with word activations
-  const currentSefirah = useCurrentSefirah()
-  const setCurrentSefirah = useSpiritualStore((state) => state.setCurrentSefirah)
-
-  // Get all words for total count
+  // Get all words from selected prayer
   const allWords = useMemo(() => {
+    if (!selectedPrayer) return []
     const words: SpiritualWord[] = []
     for (const verse of selectedPrayer.verses) {
       words.push(...verse.words)
@@ -391,221 +823,203 @@ export default function App() {
     return words
   }, [selectedPrayer])
 
-  // Find next important word (for approaching effect)
-  const approachingWord = useMemo(() => {
-    for (let i = currentWordIndex + 1; i < Math.min(currentWordIndex + 5, allWords.length); i++) {
-      const word = allWords[i]
-      if (word.type !== 'רגיל' || word.kavvanah) {
-        return word
-      }
-    }
-    return null
-  }, [currentWordIndex, allWords])
+  // Current category
+  const selectedCategory = categories.find(c => c.id === selectedCategoryId)
 
-  // Set initial sefirah when prayer changes
+  // Reset when prayer changes
   useEffect(() => {
-    if (selectedPrayer.defaultSefirah) {
-      setCurrentSefirah(selectedPrayer.defaultSefirah)
-    }
     setCurrentWordIndex(0)
     setIsPlaying(false)
-    setActiveWord(null)
-  }, [selectedPrayer, setCurrentSefirah])
+    setActiveKavvanot(new Map())
+  }, [selectedPrayer])
 
-  // Auto-play logic
+  // Player logic - continues without waiting for kavvanah
   useEffect(() => {
-    if (isPlaying && currentWordIndex < allWords.length) {
-      const currentWord = allWords[currentWordIndex]
-      const isSignificant = currentWord.type !== 'רגיל' || currentWord.kavvanah
-
-      // Update active word if significant
-      if (isSignificant) {
-        setActiveWord(currentWord)
-        if (currentWord.sefirah) {
-          setCurrentSefirah(currentWord.sefirah)
-        }
-      } else {
-        // Clear active word for regular words
-        setActiveWord(null)
-      }
-
-      // Scroll to word
-      const wordElement = document.querySelector(`[data-word-id="${currentWord.id}"]`)
-      if (wordElement) {
-        wordElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-
-      // Calculate delay based on word type and speed
-      const baseDelay = isSignificant ? (currentWord.duration || 2000) : 400
-      const delay = baseDelay / playbackSpeed
-
-      playbackRef.current = setTimeout(() => {
-        if (currentWordIndex < allWords.length - 1) {
-          setCurrentWordIndex(prev => prev + 1)
-        } else {
-          setIsPlaying(false)
-          setActiveWord(null)
-        }
-      }, delay)
+    if (!isPlaying || !selectedPrayer || currentWordIndex >= allWords.length) {
+      return
     }
+
+    const word = allWords[currentWordIndex]
+
+    // If word has kavvanah, show tooltip
+    if (word.kavvanah && word.type !== 'רגיל') {
+      const element = document.querySelector(`[data-word-id="${word.id}"]`)
+      if (element) {
+        const rect = element.getBoundingClientRect()
+        setActiveKavvanot(prev => {
+          const next = new Map(prev)
+          next.set(word.id, {
+            word,
+            position: { x: rect.left + rect.width / 2, y: rect.top }
+          })
+          return next
+        })
+      }
+    }
+
+    // Scroll to word
+    const element = document.querySelector(`[data-word-id="${word.id}"]`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+
+    // Move to next word (don't wait for kavvanah to disappear)
+    const delay = (word.type !== 'רגיל' ? 600 : 300) / playbackSpeed
+
+    playbackRef.current = setTimeout(() => {
+      if (currentWordIndex < allWords.length - 1) {
+        setCurrentWordIndex(prev => prev + 1)
+      } else {
+        setIsPlaying(false)
+      }
+    }, delay)
 
     return () => {
       if (playbackRef.current) {
         clearTimeout(playbackRef.current)
       }
     }
-  }, [isPlaying, currentWordIndex, allWords, playbackSpeed, setCurrentSefirah])
+  }, [isPlaying, currentWordIndex, allWords, playbackSpeed, selectedPrayer])
 
-  // Clear active word after delay when paused
-  useEffect(() => {
-    if (!isPlaying && activeWord) {
-      const timeout = setTimeout(() => {
-        setActiveWord(null)
-      }, 5000)
-      return () => clearTimeout(timeout)
+  // Handlers
+  const handleAddCategory = useCallback((name: string) => {
+    const newCategory: Category = {
+      id: `custom_${Date.now()}`,
+      name,
+      isBuiltIn: false,
+      prayers: []
     }
-  }, [isPlaying, activeWord])
+    const updated = [...categories, newCategory]
+    setCategories(updated)
+    saveCategories(updated)
+    setSelectedCategoryId(newCategory.id)
+  }, [categories])
 
-  // Handle word click in edit mode
-  useEffect(() => {
-    if (!editMode) return
+  const handleDeleteCategory = useCallback((id: string) => {
+    const updated = categories.filter(c => c.id !== id)
+    setCategories(updated)
+    saveCategories(updated)
+    if (selectedCategoryId === id) {
+      setSelectedCategoryId(categories[0]?.id || null)
+    }
+  }, [categories, selectedCategoryId])
 
-    const handleWordClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      const wordId = target.getAttribute('data-word-id')
-      if (wordId) {
-        const word = allWords.find(w => w.id === wordId)
-        if (word) {
-          setSelectedWord(word)
-        }
+  const handleAddPrayer = useCallback((title: string, text: string) => {
+    if (!selectedCategoryId) return
+
+    const prayer = parseSpiritualText(title, text, 'תפארת')
+    const updated = categories.map(c => {
+      if (c.id === selectedCategoryId) {
+        return { ...c, prayers: [...c.prayers, prayer] }
       }
-    }
+      return c
+    })
+    setCategories(updated)
+    saveCategories(updated)
+  }, [categories, selectedCategoryId])
 
-    document.addEventListener('click', handleWordClick)
-    return () => document.removeEventListener('click', handleWordClick)
-  }, [editMode, allWords, setSelectedWord])
-
-  const handlePrayerSelect = useCallback((prayer: SpiritualText) => {
-    setSelectedPrayer(prayer)
+  const handleRemoveKavvanah = useCallback((wordId: string) => {
+    setActiveKavvanot(prev => {
+      const next = new Map(prev)
+      next.delete(wordId)
+      return next
+    })
   }, [])
 
-  const handlePlayPause = useCallback(() => {
-    setIsPlaying(prev => !prev)
-  }, [])
-
-  const handleSpeedChange = useCallback((speed: number) => {
-    setPlaybackSpeed(speed)
-  }, [])
-
-  const handleSeek = useCallback((index: number) => {
+  const handleSeek = useCallback((progress: number) => {
+    const index = Math.floor(progress * allWords.length)
     setCurrentWordIndex(Math.max(0, Math.min(index, allWords.length - 1)))
-    setActiveWord(null)
   }, [allWords.length])
 
-  const handleAddPrayer = useCallback((prayer: Parameters<typeof addPrayer>[0]) => {
-    addPrayer(prayer)
-  }, [addPrayer])
-
-  // Get current word ID for text highlighting
-  const currentWord = allWords[currentWordIndex]
-  const playerActiveWordId = isPlaying && currentWord ? currentWord.id : null
+  const progress = allWords.length > 0 ? currentWordIndex / allWords.length : 0
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative' }}>
-      {/* WebGL Canvas Layer */}
-      <SpiritualCanvas
-        sefirah={currentSefirah || 'מלכות'}
-        showBackground={true}
-      />
+    <div style={{
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#08080f',
+      color: '#fff'
+    }}>
+      {/* Main content */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Category sidebar */}
+        <CategorySidebar
+          categories={categories}
+          selectedCategory={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryId}
+          onAddCategory={() => setShowAddCategory(true)}
+          onDeleteCategory={handleDeleteCategory}
+        />
 
-      {/* Prayer Selector */}
-      <PrayerSelector
-        prayers={allPrayers}
-        selectedId={selectedPrayer.id}
-        onSelect={handlePrayerSelect}
-        customPrayerCount={customPrayers.length}
-      />
-
-      {/* Sefirah Indicator */}
-      <SefirahIndicator sefirah={currentSefirah} />
-
-      {/* Kavvanah Overlay - Large centered display */}
-      {!editMode && <KavvanahOverlay word={activeWord} sefirah={currentSefirah} />}
-
-      {/* Prayer Text - with active word highlighting */}
-      <SpiritualTextComponent
-        text={selectedPrayer}
-        playerActiveWordId={playerActiveWordId}
-        approachingWordId={approachingWord?.id || null}
-      />
-
-      {/* Control Panel */}
-      <ControlPanel
-        isPlaying={isPlaying}
-        onPlayPause={handlePlayPause}
-        speed={playbackSpeed}
-        onSpeedChange={handleSpeedChange}
-        currentWordIndex={currentWordIndex}
-        totalWords={allWords.length}
-        onSeek={handleSeek}
-        currentSefirah={currentSefirah}
-      />
-
-      {/* Add Prayer Button */}
-      <AddPrayerButton onClick={() => setShowAddModal(true)} />
-
-      {/* Edit Mode Toggle */}
-      <EditModeToggle isActive={editMode} onToggle={() => setEditMode(!editMode)} />
-
-      {/* Add Prayer Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <AddPrayerModal
-            isOpen={showAddModal}
-            onClose={() => setShowAddModal(false)}
-            onSave={handleAddPrayer}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Kavvanah Editor Modal */}
-      <AnimatePresence>
-        {editMode && selectedWord && (
-          <KavvanahEditor
-            word={selectedWord}
-            onClose={() => setSelectedWord(null)}
-            onSave={saveKavvanah}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Edit Mode Indicator */}
-      {editMode && (
+        {/* Prayer list */}
         <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          padding: '1rem 2rem',
-          background: 'rgba(255, 136, 68, 0.9)',
-          borderRadius: '12px',
-          color: '#fff',
-          fontSize: '1.1rem',
-          zIndex: 150,
-          pointerEvents: 'none',
-          opacity: 0.9
+          width: '250px',
+          background: '#0b0b14',
+          borderLeft: '1px solid #222',
+          overflowY: 'auto'
         }}>
-          לחץ על מילה להוספת כוונה
+          <div style={{
+            padding: '1rem',
+            borderBottom: '1px solid #222',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ color: '#888', fontSize: '0.9rem' }}>תפילות</span>
+            <button
+              onClick={() => setShowAddPrayer(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#4488ff',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                padding: 0
+              }}
+            >
+              +
+            </button>
+          </div>
+          <PrayerList
+            prayers={selectedCategory?.prayers || []}
+            selectedPrayer={selectedPrayer?.id || null}
+            onSelectPrayer={setSelectedPrayer}
+            onAddPrayer={() => setShowAddPrayer(true)}
+          />
         </div>
-      )}
 
-      {/* Animations */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(1.1); }
-        }
-      `}</style>
+        {/* Book view */}
+        <BookView
+          prayer={selectedPrayer}
+          currentWordIndex={currentWordIndex}
+          isPlaying={isPlaying}
+          activeKavvanot={activeKavvanot}
+          onRemoveKavvanah={handleRemoveKavvanah}
+        />
+      </div>
+
+      {/* Player controls */}
+      <PlayerControls
+        isPlaying={isPlaying}
+        onPlayPause={() => setIsPlaying(prev => !prev)}
+        speed={playbackSpeed}
+        onSpeedChange={setPlaybackSpeed}
+        progress={progress}
+        onSeek={handleSeek}
+      />
+
+      {/* Modals */}
+      <AddCategoryModal
+        isOpen={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        onSave={handleAddCategory}
+      />
+      <AddPrayerModal
+        isOpen={showAddPrayer}
+        onClose={() => setShowAddPrayer(false)}
+        onSave={handleAddPrayer}
+      />
     </div>
   )
 }
