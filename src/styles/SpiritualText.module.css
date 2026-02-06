@@ -1,7 +1,7 @@
 /**
  * 📜 Spiritual Text Styles
  *
- * עיצוב טקסט קדוש עם אפקטי זוהר
+ * עיצוב טקסט קדוש עם אפקטי זוהר וקווי אור
  */
 
 .container {
@@ -88,33 +88,171 @@
     0 0 60px var(--secondary-color, #88aaff);
 }
 
-/* Kavvanah tooltip */
-.kavvanahTooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.5rem 1rem;
-  background: rgba(10, 10, 25, 0.98);
-  border: 1px solid rgba(100, 150, 255, 0.3);
-  border-radius: 8px;
-  font-size: 0.85rem;
-  color: #c0d0ee;
-  white-space: nowrap;
-  pointer-events: none;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
-  z-index: 100;
+/* ═══════════════════════════════════════════════════════════════════
+   PLAYER ACTIVE WORD - המילה הפעילה בנגן
+   ═══════════════════════════════════════════════════════════════════ */
+
+.playerActive {
+  color: #ffffff !important;
+  font-weight: 700;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(var(--glow-color-rgb, 68, 136, 255), 0.15) 50%,
+    transparent 100%
+  );
+  padding: 0.1em 0.3em;
+  margin: 0 0.05em;
+  border-radius: 4px;
+  text-shadow:
+    0 0 15px var(--glow-color, #4488ff),
+    0 0 30px var(--glow-color, #4488ff),
+    0 0 60px var(--glow-color, #4488ff),
+    0 0 100px var(--secondary-color, #88aaff) !important;
+  animation: playerActivePulse 1.5s ease-in-out infinite;
 }
 
-.kavvanahTooltip::after {
-  content: '';
+@keyframes playerActivePulse {
+  0%, 100% {
+    filter: brightness(1);
+    transform: scale(1.15);
+  }
+  50% {
+    filter: brightness(1.3);
+    transform: scale(1.2);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT RAYS - קווי אור מעל המילה
+   ═══════════════════════════════════════════════════════════════════ */
+
+.lightRaysContainer {
   position: absolute;
-  top: 100%;
+  top: -60px;
   left: 50%;
   transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-top-color: rgba(100, 150, 255, 0.3);
+  width: 100px;
+  height: 60px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.lightRay {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  height: 50px;
+  background: linear-gradient(
+    to top,
+    var(--ray-color, #4488ff) 0%,
+    transparent 100%
+  );
+  transform-origin: bottom center;
+  transform: translateX(-50%) rotate(var(--ray-angle, 0deg));
+  opacity: 0;
+  animation: rayShoot 0.8s ease-out forwards;
+  animation-delay: var(--ray-delay, 0s);
+}
+
+@keyframes rayShoot {
+  0% {
+    opacity: 0;
+    height: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+    height: 50px;
+  }
+}
+
+/* Glowing tip on each ray */
+.lightRay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ray-color, #4488ff);
+  box-shadow:
+    0 0 6px var(--ray-color, #4488ff),
+    0 0 12px var(--ray-color, #4488ff);
+  animation: tipPulse 1s ease-in-out infinite;
+}
+
+@keyframes tipPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  50% { transform: translateX(-50%) scale(1.5); opacity: 0.7; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   APPROACHING WORD - המילה הבאה
+   ═══════════════════════════════════════════════════════════════════ */
+
+.approaching {
+  position: relative;
+}
+
+.approachingPulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120%;
+  height: 150%;
+  border-radius: 8px;
+  background: radial-gradient(
+    ellipse at center,
+    var(--pulse-color, rgba(68, 136, 255, 0.3)) 0%,
+    transparent 70%
+  );
+  animation: approachPulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes approachPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.8;
+  }
+}
+
+/* Approaching glow ring */
+.approaching::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 110%;
+  height: 140%;
+  border: 2px solid var(--glow-color, #4488ff);
+  border-radius: 8px;
+  opacity: 0;
+  animation: ringExpand 1.5s ease-out infinite;
+}
+
+@keyframes ringExpand {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
 }
 
 /* Source reference */
@@ -135,7 +273,10 @@
   }
 }
 
-/* Responsive adjustments */
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+
 @media (max-width: 768px) {
   .container {
     padding: 2rem 1rem;
@@ -152,6 +293,15 @@
 
   .textContent {
     padding: 1.5rem 1rem;
+  }
+
+  .lightRaysContainer {
+    top: -40px;
+    height: 40px;
+  }
+
+  .lightRay {
+    height: 35px;
   }
 }
 

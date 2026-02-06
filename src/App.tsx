@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { SpiritualCanvas } from '@/components/SpiritualCanvas'
 import { SpiritualTextComponent } from '@/components/SpiritualText'
 import { ControlPanel } from '@/components/ControlPanel'
@@ -123,61 +124,174 @@ function SefirahIndicator({ sefirah }: SefirahIndicatorProps) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// KAVVANAH DISPLAY
+// KAVVANAH OVERLAY - תצוגת כוונה מרכזית מרשימה
 // ═══════════════════════════════════════════════════════════════════
 
-interface KavvanahDisplayProps {
+interface KavvanahOverlayProps {
   word: SpiritualWord | null
   sefirah: Sefirah | null
 }
 
-function KavvanahDisplay({ word, sefirah }: KavvanahDisplayProps) {
-  if (!word || !word.kavvanah) return null
-
+function KavvanahOverlay({ word, sefirah }: KavvanahOverlayProps) {
   const visuals = sefirah ? SEFIROT_VISUALS[sefirah] : null
+  const color = visuals?.primaryColor || '#4488ff'
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: '5rem',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 100,
-      padding: '1rem 2rem',
-      background: 'rgba(10, 10, 20, 0.95)',
-      borderRadius: '12px',
-      border: `1px solid ${visuals?.primaryColor || '#4488ff'}40`,
-      backdropFilter: 'blur(10px)',
-      boxShadow: `0 4px 20px rgba(0, 0, 0, 0.5), 0 0 40px ${visuals?.primaryColor || '#4488ff'}20`,
-      textAlign: 'center',
-      animation: 'fadeIn 0.3s ease'
-    }}>
-      <div style={{
-        fontSize: '1.5rem',
-        color: visuals?.primaryColor || '#4488ff',
-        fontWeight: 600,
-        marginBottom: '0.5rem',
-        textShadow: `0 0 20px ${visuals?.primaryColor || '#4488ff'}80`
-      }}>
-        {word.text}
-      </div>
-      <div style={{
-        fontSize: '1rem',
-        color: '#c0d0ee',
-        direction: 'ltr'
-      }}>
-        {word.kavvanah}
-      </div>
-      {word.gematria && (
-        <div style={{
-          fontSize: '0.85rem',
-          color: '#888',
-          marginTop: '0.5rem'
-        }}>
-          גימטריה: {word.gematria}
-        </div>
+    <AnimatePresence>
+      {word && word.kavvanah && (
+        <motion.div
+          key={word.id}
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: -20 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 200,
+            padding: '2rem 3rem',
+            background: 'rgba(5, 5, 15, 0.98)',
+            borderRadius: '24px',
+            border: `2px solid ${color}60`,
+            backdropFilter: 'blur(20px)',
+            boxShadow: `
+              0 0 60px ${color}40,
+              0 0 120px ${color}20,
+              0 8px 32px rgba(0, 0, 0, 0.8),
+              inset 0 0 60px ${color}10
+            `,
+            textAlign: 'center',
+            maxWidth: '90vw',
+            minWidth: '280px'
+          }}
+        >
+          {/* Decorative light lines above */}
+          <div style={{
+            position: 'absolute',
+            top: '-40px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'center'
+          }}>
+            {[...Array(5)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 30, opacity: 0.8 }}
+                transition={{ delay: i * 0.1, duration: 0.3 }}
+                style={{
+                  width: '2px',
+                  background: `linear-gradient(to top, ${color}, transparent)`,
+                  borderRadius: '2px',
+                  transform: `rotate(${-20 + i * 10}deg)`
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Main word */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            style={{
+              fontSize: '2.5rem',
+              fontWeight: 700,
+              color: '#ffffff',
+              marginBottom: '1rem',
+              textShadow: `
+                0 0 20px ${color},
+                0 0 40px ${color}80,
+                0 0 60px ${color}60
+              `,
+              fontFamily: "'Frank Ruhl Libre', serif"
+            }}
+          >
+            {word.text}
+          </motion.div>
+
+          {/* Kavvanah text */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            style={{
+              fontSize: '1.3rem',
+              color: '#c8d8f8',
+              lineHeight: 1.8,
+              direction: 'rtl',
+              fontFamily: "'Frank Ruhl Libre', serif",
+              padding: '0.5rem 0'
+            }}
+          >
+            {word.kavvanah}
+          </motion.div>
+
+          {/* Divine name type indicator */}
+          {word.divineName && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              style={{
+                marginTop: '1rem',
+                padding: '0.5rem 1rem',
+                background: `${color}20`,
+                borderRadius: '20px',
+                display: 'inline-block',
+                fontSize: '0.9rem',
+                color: color
+              }}
+            >
+              שם קדוש: {word.divineName}
+            </motion.div>
+          )}
+
+          {/* Gematria if available */}
+          {word.gematria && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.35 }}
+              style={{
+                marginTop: '0.75rem',
+                fontSize: '0.95rem',
+                color: '#8898b8'
+              }}
+            >
+              גימטריה: {word.gematria}
+            </motion.div>
+          )}
+
+          {/* Pulsing ring effect */}
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.5, 0, 0.5]
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut'
+            }}
+            style={{
+              position: 'absolute',
+              top: '-4px',
+              left: '-4px',
+              right: '-4px',
+              bottom: '-4px',
+              borderRadius: '28px',
+              border: `2px solid ${color}`,
+              pointerEvents: 'none'
+            }}
+          />
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   )
 }
 
@@ -207,6 +321,17 @@ export default function App() {
     return words
   }, [selectedPrayer])
 
+  // Find next important word (for approaching effect)
+  const approachingWord = useMemo(() => {
+    for (let i = currentWordIndex + 1; i < Math.min(currentWordIndex + 5, allWords.length); i++) {
+      const word = allWords[i]
+      if (word.type !== 'רגיל' || word.kavvanah) {
+        return word
+      }
+    }
+    return null
+  }, [currentWordIndex, allWords])
+
   // Set initial sefirah when prayer changes
   useEffect(() => {
     if (selectedPrayer.defaultSefirah) {
@@ -229,6 +354,9 @@ export default function App() {
         if (currentWord.sefirah) {
           setCurrentSefirah(currentWord.sefirah)
         }
+      } else {
+        // Clear active word for regular words
+        setActiveWord(null)
       }
 
       // Scroll to word
@@ -238,7 +366,7 @@ export default function App() {
       }
 
       // Calculate delay based on word type and speed
-      const baseDelay = isSignificant ? currentWord.duration : 500
+      const baseDelay = isSignificant ? (currentWord.duration || 2000) : 400
       const delay = baseDelay / playbackSpeed
 
       playbackRef.current = setTimeout(() => {
@@ -258,12 +386,12 @@ export default function App() {
     }
   }, [isPlaying, currentWordIndex, allWords, playbackSpeed, setCurrentSefirah])
 
-  // Clear active word after delay when not playing
+  // Clear active word after delay when paused
   useEffect(() => {
     if (!isPlaying && activeWord) {
       const timeout = setTimeout(() => {
         setActiveWord(null)
-      }, 3000)
+      }, 5000)
       return () => clearTimeout(timeout)
     }
   }, [isPlaying, activeWord])
@@ -282,7 +410,12 @@ export default function App() {
 
   const handleSeek = useCallback((index: number) => {
     setCurrentWordIndex(Math.max(0, Math.min(index, allWords.length - 1)))
+    setActiveWord(null)
   }, [allWords.length])
+
+  // Get current word ID for text highlighting
+  const currentWord = allWords[currentWordIndex]
+  const playerActiveWordId = isPlaying && currentWord ? currentWord.id : null
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
@@ -302,12 +435,14 @@ export default function App() {
       {/* Sefirah Indicator */}
       <SefirahIndicator sefirah={currentSefirah} />
 
-      {/* Kavvanah Display */}
-      <KavvanahDisplay word={activeWord} sefirah={currentSefirah} />
+      {/* Kavvanah Overlay - Large centered display */}
+      <KavvanahOverlay word={activeWord} sefirah={currentSefirah} />
 
-      {/* Prayer Text */}
+      {/* Prayer Text - with active word highlighting */}
       <SpiritualTextComponent
         text={selectedPrayer}
+        playerActiveWordId={playerActiveWordId}
+        approachingWordId={approachingWord?.id || null}
       />
 
       {/* Control Panel */}
@@ -327,10 +462,6 @@ export default function App() {
         @keyframes pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.7; transform: scale(1.1); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
       `}</style>
     </div>

@@ -26,26 +26,54 @@ import {
 import styles from '@/styles/SpiritualText.module.css'
 
 // ═══════════════════════════════════════════════════════════════════
+// LIGHT RAYS COMPONENT - קווי אור מעל המילה
+// ═══════════════════════════════════════════════════════════════════
+
+function LightRays({ color }: { color: string }) {
+  return (
+    <div className={styles.lightRaysContainer}>
+      {[...Array(7)].map((_, i) => (
+        <div
+          key={i}
+          className={styles.lightRay}
+          style={{
+            '--ray-index': i,
+            '--ray-color': color,
+            '--ray-delay': `${i * 0.1}s`,
+            '--ray-angle': `${-45 + i * 15}deg`
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // SPIRITUAL WORD COMPONENT
 // ═══════════════════════════════════════════════════════════════════
 
 interface SpiritualWordProps {
   word: SpiritualWord
   isActive: boolean
+  isPlayerActive: boolean // From the player
+  isApproaching: boolean // Next word warning
   onActivate: (wordId: string) => void
   onDeactivate: (wordId: string) => void
 }
 
 const SpiritualWordComponent = memo(
   forwardRef<HTMLSpanElement, SpiritualWordProps>(
-    ({ word, isActive }, ref) => {
+    ({ word, isActive, isPlayerActive, isApproaching }, ref) => {
       const visuals = word.sefirah ? SEFIROT_VISUALS[word.sefirah] : null
+      const showHighlight = isActive || isPlayerActive
 
       const getWordClass = () => {
         const classes = [styles.word]
         if (word.type === 'שם') classes.push(styles.divineName)
         if (word.type === 'כוונה') classes.push(styles.kavvanah)
-        if (isActive) classes.push(styles.active)
+        if (showHighlight) classes.push(styles.active)
+        if (isPlayerActive) classes.push(styles.playerActive)
+        if (isApproaching) classes.push(styles.approaching)
         return classes.join(' ')
       }
 
@@ -54,7 +82,10 @@ const SpiritualWordComponent = memo(
             '--glow-color': visuals.primaryColor,
             '--secondary-color': visuals.secondaryColor
           } as React.CSSProperties)
-        : {}
+        : ({
+            '--glow-color': '#4488ff',
+            '--secondary-color': '#88aaff'
+          } as React.CSSProperties)
 
       return (
         <motion.span
@@ -64,27 +95,24 @@ const SpiritualWordComponent = memo(
           data-word-id={word.id}
           data-sefirah={word.sefirah}
           data-type={word.type}
-          initial={{ opacity: 0.8 }}
+          initial={{ opacity: 0.85 }}
           animate={{
-            opacity: isActive ? 1 : 0.85,
-            scale: isActive ? 1.02 : 1,
-            textShadow: isActive && visuals
-              ? `0 0 20px ${visuals.primaryColor}, 0 0 40px ${visuals.primaryColor}50`
-              : 'none'
+            opacity: showHighlight ? 1 : 0.85,
+            scale: isPlayerActive ? 1.15 : showHighlight ? 1.05 : 1,
           }}
           transition={{ duration: 0.3 }}
         >
-          {word.text}
-          {isActive && word.kavvanah && (
-            <motion.span
-              className={styles.kavvanahTooltip}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              {word.kavvanah}
-            </motion.span>
+          {/* Light rays for active player word */}
+          {isPlayerActive && word.type !== 'רגיל' && (
+            <LightRays color={visuals?.primaryColor || '#4488ff'} />
           )}
+
+          {/* Approaching indicator */}
+          {isApproaching && (
+            <span className={styles.approachingPulse} style={{ '--pulse-color': visuals?.primaryColor || '#4488ff' } as React.CSSProperties} />
+          )}
+
+          {word.text}
         </motion.span>
       )
     }
@@ -100,13 +128,15 @@ SpiritualWordComponent.displayName = 'SpiritualWord'
 interface SpiritualVerseProps {
   verse: SpiritualVerse
   activeWords: Set<string>
+  playerActiveWordId: string | null
+  approachingWordId: string | null
   onWordActivate: (wordId: string) => void
   onWordDeactivate: (wordId: string) => void
   registerWordRef: (wordId: string, element: HTMLElement | null) => void
 }
 
 const SpiritualVerseComponent = memo(
-  ({ verse, activeWords, onWordActivate, onWordDeactivate, registerWordRef }: SpiritualVerseProps) => {
+  ({ verse, activeWords, playerActiveWordId, approachingWordId, onWordActivate, onWordDeactivate, registerWordRef }: SpiritualVerseProps) => {
     return (
       <p className={styles.verse} data-verse-id={verse.id}>
         {verse.words.map((word) => (
@@ -115,6 +145,8 @@ const SpiritualVerseComponent = memo(
             ref={(el) => registerWordRef(word.id, el)}
             word={word}
             isActive={activeWords.has(word.id)}
+            isPlayerActive={playerActiveWordId === word.id}
+            isApproaching={approachingWordId === word.id}
             onActivate={onWordActivate}
             onDeactivate={onWordDeactivate}
           />
@@ -136,11 +168,15 @@ SpiritualVerseComponent.displayName = 'SpiritualVerse'
 interface SpiritualTextComponentProps {
   text: SpiritualText
   className?: string
+  playerActiveWordId?: string | null
+  approachingWordId?: string | null
 }
 
 export function SpiritualTextComponent({
   text,
-  className
+  className,
+  playerActiveWordId = null,
+  approachingWordId = null
 }: SpiritualTextComponentProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const wordRefs = useRef<Map<string, HTMLElement>>(new Map())
@@ -295,6 +331,8 @@ export function SpiritualTextComponent({
               key={verse.id}
               verse={verse}
               activeWords={activeWords}
+              playerActiveWordId={playerActiveWordId}
+              approachingWordId={approachingWordId}
               onWordActivate={handleWordActivate}
               onWordDeactivate={handleWordDeactivate}
               registerWordRef={registerWordRef}
