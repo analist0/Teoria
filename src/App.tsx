@@ -9,6 +9,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SpiritualCanvas } from '@/components/SpiritualCanvas'
 import { SpiritualTextComponent } from '@/components/SpiritualText'
 import { ControlPanel } from '@/components/ControlPanel'
+import {
+  AddPrayerButton,
+  EditModeToggle,
+  AddPrayerModal,
+  KavvanahEditor,
+  usePrayerEditor
+} from '@/components/PrayerEditor'
 import { ALL_PRAYERS } from '@/data/prayers'
 import type { SpiritualText, Sefirah, SpiritualWord } from '@/engine/types'
 import { SEFIROT_VISUALS } from '@/engine/sefirot'
@@ -23,9 +30,13 @@ interface PrayerSelectorProps {
   prayers: SpiritualText[]
   selectedId: string
   onSelect: (prayer: SpiritualText) => void
+  customPrayerCount?: number
 }
 
-function PrayerSelector({ prayers, selectedId, onSelect }: PrayerSelectorProps) {
+function PrayerSelector({ prayers, selectedId, onSelect, customPrayerCount = 0 }: PrayerSelectorProps) {
+  const builtInPrayers = prayers.slice(0, prayers.length - customPrayerCount)
+  const customPrayers = prayers.slice(prayers.length - customPrayerCount)
+
   return (
     <nav style={{
       position: 'fixed',
@@ -39,7 +50,9 @@ function PrayerSelector({ prayers, selectedId, onSelect }: PrayerSelectorProps) 
       padding: '1rem',
       borderRadius: '12px',
       border: '1px solid rgba(100, 150, 255, 0.2)',
-      backdropFilter: 'blur(10px)'
+      backdropFilter: 'blur(10px)',
+      maxHeight: '80vh',
+      overflowY: 'auto'
     }}>
       <span style={{
         fontSize: '0.85rem',
@@ -48,7 +61,7 @@ function PrayerSelector({ prayers, selectedId, onSelect }: PrayerSelectorProps) 
       }}>
         בחר תפילה:
       </span>
-      {prayers.map((prayer) => (
+      {builtInPrayers.map((prayer) => (
         <button
           key={prayer.id}
           onClick={() => onSelect(prayer)}
@@ -72,6 +85,44 @@ function PrayerSelector({ prayers, selectedId, onSelect }: PrayerSelectorProps) 
           {prayer.title}
         </button>
       ))}
+
+      {customPrayers.length > 0 && (
+        <>
+          <span style={{
+            fontSize: '0.75rem',
+            color: '#666',
+            marginTop: '0.5rem',
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            paddingTop: '0.5rem'
+          }}>
+            תפילות שלי:
+          </span>
+          {customPrayers.map((prayer) => (
+            <button
+              key={prayer.id}
+              onClick={() => onSelect(prayer)}
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.95rem',
+                color: selectedId === prayer.id ? '#ffffff' : '#ffcc88',
+                background: selectedId === prayer.id
+                  ? 'linear-gradient(135deg, rgba(255, 136, 68, 0.3), rgba(255, 170, 136, 0.1))'
+                  : 'transparent',
+                border: '1px solid',
+                borderColor: selectedId === prayer.id
+                  ? 'rgba(255, 150, 100, 0.5)'
+                  : 'transparent',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                textAlign: 'right',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {prayer.title}
+            </button>
+          ))}
+        </>
+      )}
     </nav>
   )
 }
@@ -308,6 +359,25 @@ export default function App() {
 
   const playbackRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Prayer Editor
+  const {
+    showAddModal,
+    setShowAddModal,
+    editMode,
+    setEditMode,
+    selectedWord,
+    setSelectedWord,
+    customPrayers,
+    addPrayer,
+    saveKavvanah,
+    getParsedCustomPrayers
+  } = usePrayerEditor()
+
+  // Combine built-in and custom prayers
+  const allPrayers = useMemo(() => {
+    return [...ALL_PRAYERS, ...getParsedCustomPrayers()]
+  }, [getParsedCustomPrayers, customPrayers])
+
   // Use sefirah from global store to stay in sync with word activations
   const currentSefirah = useCurrentSefirah()
   const setCurrentSefirah = useSpiritualStore((state) => state.setCurrentSefirah)
@@ -396,6 +466,25 @@ export default function App() {
     }
   }, [isPlaying, activeWord])
 
+  // Handle word click in edit mode
+  useEffect(() => {
+    if (!editMode) return
+
+    const handleWordClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      const wordId = target.getAttribute('data-word-id')
+      if (wordId) {
+        const word = allWords.find(w => w.id === wordId)
+        if (word) {
+          setSelectedWord(word)
+        }
+      }
+    }
+
+    document.addEventListener('click', handleWordClick)
+    return () => document.removeEventListener('click', handleWordClick)
+  }, [editMode, allWords, setSelectedWord])
+
   const handlePrayerSelect = useCallback((prayer: SpiritualText) => {
     setSelectedPrayer(prayer)
   }, [])
@@ -413,6 +502,10 @@ export default function App() {
     setActiveWord(null)
   }, [allWords.length])
 
+  const handleAddPrayer = useCallback((prayer: Parameters<typeof addPrayer>[0]) => {
+    addPrayer(prayer)
+  }, [addPrayer])
+
   // Get current word ID for text highlighting
   const currentWord = allWords[currentWordIndex]
   const playerActiveWordId = isPlaying && currentWord ? currentWord.id : null
@@ -427,16 +520,17 @@ export default function App() {
 
       {/* Prayer Selector */}
       <PrayerSelector
-        prayers={ALL_PRAYERS}
+        prayers={allPrayers}
         selectedId={selectedPrayer.id}
         onSelect={handlePrayerSelect}
+        customPrayerCount={customPrayers.length}
       />
 
       {/* Sefirah Indicator */}
       <SefirahIndicator sefirah={currentSefirah} />
 
       {/* Kavvanah Overlay - Large centered display */}
-      <KavvanahOverlay word={activeWord} sefirah={currentSefirah} />
+      {!editMode && <KavvanahOverlay word={activeWord} sefirah={currentSefirah} />}
 
       {/* Prayer Text - with active word highlighting */}
       <SpiritualTextComponent
@@ -456,6 +550,54 @@ export default function App() {
         onSeek={handleSeek}
         currentSefirah={currentSefirah}
       />
+
+      {/* Add Prayer Button */}
+      <AddPrayerButton onClick={() => setShowAddModal(true)} />
+
+      {/* Edit Mode Toggle */}
+      <EditModeToggle isActive={editMode} onToggle={() => setEditMode(!editMode)} />
+
+      {/* Add Prayer Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <AddPrayerModal
+            isOpen={showAddModal}
+            onClose={() => setShowAddModal(false)}
+            onSave={handleAddPrayer}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Kavvanah Editor Modal */}
+      <AnimatePresence>
+        {editMode && selectedWord && (
+          <KavvanahEditor
+            word={selectedWord}
+            onClose={() => setSelectedWord(null)}
+            onSave={saveKavvanah}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Edit Mode Indicator */}
+      {editMode && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          padding: '1rem 2rem',
+          background: 'rgba(255, 136, 68, 0.9)',
+          borderRadius: '12px',
+          color: '#fff',
+          fontSize: '1.1rem',
+          zIndex: 150,
+          pointerEvents: 'none',
+          opacity: 0.9
+        }}>
+          לחץ על מילה להוספת כוונה
+        </div>
+      )}
 
       {/* Animations */}
       <style>{`

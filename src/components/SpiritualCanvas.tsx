@@ -87,8 +87,8 @@ function SceneContent({ sefirah, showBackground = true }: SceneContentProps) {
       {/* Ambient lighting */}
       <ambientLight intensity={0.1} />
 
-      {/* Aurora background */}
-      {showBackground && <AuroraBackground sefirah={sefirah} intensity={0.4} />}
+      {/* Aurora background - very subtle */}
+      {showBackground && <AuroraBackground sefirah={sefirah} intensity={0.12} />}
 
       {/* Particle attractors */}
       <AttractorRenderer />

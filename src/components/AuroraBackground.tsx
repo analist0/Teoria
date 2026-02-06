@@ -120,7 +120,7 @@ interface AuroraBackgroundProps {
 
 export function AuroraBackground({
   sefirah = 'מלכות',
-  intensity = 0.5
+  intensity = 0.15 // Much lower default
 }: AuroraBackgroundProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const { viewport } = useThree()

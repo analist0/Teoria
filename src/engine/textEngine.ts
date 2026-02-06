@@ -22,10 +22,20 @@ import { DIVINE_NAME_SEFIRAH } from './sefirot'
 const DIVINE_NAME_PATTERNS: Record<DivineName, RegExp[]> = {
   'הוי-ה': [/יהוה/, /י-ה-ו-ה/, /ה'/],
   'אדנ-י': [/אדני/, /אדונ?י/, /אֲדֹנָי/],
-  'אלהים': [/אלהים/, /אלוהים/, /אֱלֹהִים/],
+  'אלהים': [/אלהים/, /אלוהים/, /אֱלֹהִים/, /אֱלֹהֵינוּ/, /אלהינו/, /אֱלֹהֶיךָ/, /אלהיך/],
   'שדי': [/שדי/, /שַׁדַּי/],
   'צבאות': [/צבאות/, /צְבָאוֹת/],
   'אהיה': [/אהיה/, /אֶהְיֶה/]
+}
+
+// Kavvanot (intentions) for Divine Names
+const DIVINE_NAME_KAVVANOT: Record<DivineName, string> = {
+  'הוי-ה': 'שם הוי"ה - היה הווה ויהיה - מקור כל המציאות, מחשבה על אינסוף ברוך הוא',
+  'אדנ-י': 'שם אדנות - אדון הכל, מלך מלכי המלכים, שולט בכל העולמות',
+  'אלהים': 'שם אלהים - כח הדין והגבורה, בורא ומנהיג הטבע',
+  'שדי': 'שם שדי - שאמר לעולמו די, גבול ומידה לכל הבריאה',
+  'צבאות': 'שם צבאות - אדון כל הצבאות העליונים והתחתונים',
+  'אהיה': 'שם אהיה - אהיה אשר אהיה, הוויה מוחלטת מעבר לזמן'
 }
 
 // Words that have special spiritual significance
@@ -151,14 +161,19 @@ export function parseWord(text: string): SpiritualWord {
     ? DIVINE_NAME_SEFIRAH[divineName]
     : kavvanahInfo?.sefirah
 
+  // Get kavvanah - Divine Names have priority
+  const kavvanah = divineName
+    ? DIVINE_NAME_KAVVANOT[divineName]
+    : kavvanahInfo?.meaning
+
   const energyLevel = calculateEnergyLevel(
     wordType,
     divineName,
-    kavvanahInfo?.meaning
+    kavvanah
   )
 
-  // Duration based on energy level
-  const duration = 1000 + energyLevel * 2000
+  // Duration based on energy level - longer for Divine Names
+  const duration = divineName ? 3000 : (1000 + energyLevel * 2000)
 
   return {
     id: generateWordId(),
@@ -167,7 +182,7 @@ export function parseWord(text: string): SpiritualWord {
     divineName,
     sefirah,
     gematria: calculateGematria(cleanText),
-    kavvanah: kavvanahInfo?.meaning,
+    kavvanah,
     energyLevel,
     duration
   }
